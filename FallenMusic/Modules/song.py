@@ -1,120 +1,128 @@
-# MIT License
-#
-# Copyright (c) 2023 AnonymousX1025
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+from __future__ import unicode_literals
 
 import os
 
 import requests
 import yt_dlp
-from pyrogram import filters
-from pyrogram.enums import ChatType
-from FallenMusic.filters import command
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
+from pyrogram import Client, filters
+from YukkiMusic import app
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from youtube_search import YoutubeSearch
+from yt_dlp import YoutubeDL
 
-from FallenMusic import BOT_MENTION, BOT_USERNAME, LOGGER, app
+
+ydl_opts = {
+    "format": "best",
+    "keepvideo": True,
+    "prefer_ffmpeg": False,
+    "geo_bypass": True,
+    "outtmpl": "%(title)s.%(ext)s",
+    "quite": True,
+}
 
 
-@app.on_message(command(["يوخت", "تهحميل", "يو", "بحطث"]))
-async def song(_, message: Message):
+
+@app.on_message(
+    filters.command(["تحميل","يوتيوب","بحث"],"") & ~filters.edited)
+def song(_, message):
+    query = " ".join(message.command[1:])
+    m = message.reply("- **ابشر جاري البحث ..**")
+    ydl_ops = {"format": "bestaudio[ext=m4a]"}
     try:
-        await message.delete()
-    except:
-        pass
-    m = await message.reply_text("- يتم البحث الان .")
-
-    query = "".join(" " + str(i) for i in message.command[1:])
-    ydl_opts = {"format": "bestaudio[ext=m4a]"}
-    try:
-        results = YoutubeSearch(query, max_results=5).to_dict()
+        results = YoutubeSearch(query, max_results=1).to_dict()
         link = f"https://youtube.com{results[0]['url_suffix']}"
         title = results[0]["title"][:40]
         thumbnail = results[0]["thumbnails"][0]
-        thumb_name = f"thumb{title}.jpg"
+        thumb_name = f"{title}.jpg"
         thumb = requests.get(thumbnail, allow_redirects=True)
         open(thumb_name, "wb").write(thumb.content)
         duration = results[0]["duration"]
 
-    except Exception as ex:
-        LOGGER.error(ex)
-        return await m.edit_text(
-            f"- فشل .\n\n**السبب :** `{ex}`"
-        )
-
-    await m.edit_text("- تم الرفع انتضر قليلاً .")
+    except Exception as e:
+        m.edit("- **للاسف ما اثرت على شي تأكد من كتابة اسم الفنان مع الاغنية**")
+        print(str(e))
+        return
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        with yt_dlp.YoutubeDL(ydl_ops) as ydl:
             info_dict = ydl.extract_info(link, download=False)
             audio_file = ydl.prepare_filename(info_dict)
             ydl.process_info(info_dict)
-        rep = f"**- الأسم :** [{title[:23]}]({link})\n**- الوقت :** `{duration}`\n**- بواسطة  :** {BOT_MENTION}"
+        rep = f"**[𝖬𝗒 𝖲𝖳𝗎𝖿𝖿](t.me/uzzdd)**"
         secmul, dur, dur_arr = 1, 0, duration.split(":")
         for i in range(len(dur_arr) - 1, -1, -1):
-            dur += int(dur_arr[i]) * secmul
+            dur += int(float(dur_arr[i])) * secmul
             secmul *= 60
-        try:
-            visit_butt = InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            text="- يوتيوب .",
-                            url=link,
-                        )
-                    ]
-                ]
-            )
-            await app.send_audio(
-                chat_id=message.from_user.id,
-                audio=audio_file,
-                caption=rep,
-                thumb=thumb_name,
-                title=title,
-                duration=dur,
-                reply_markup=visit_butt,
-            )
-            if message.chat.type != ChatType.PRIVATE:
-                await message.reply_text(
-                    "- تم ارسال الملف الصوتي لك في الخاص"
-                )
-        except:
-            start_butt = InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            text="- اضغط هنا .",
-                            url=f"https://t.me/{BOT_USERNAME}?start",
-                        )
-                    ]
-                ]
-            )
-            return await m.edit_text(
-                text="ᴄʟɪᴄᴋ ᴏɴ ᴛʜᴇ ʙᴜᴛᴛᴏɴ ʙᴇʟᴏᴡ ᴀɴᴅ sᴛᴀʀᴛ ᴍᴇ ғᴏʀ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ sᴏɴɢs.",
-                reply_markup=start_butt,
-            )
-        await m.delete()
-    except:
-        return await m.edit_text("ғᴀɪʟᴇᴅ ᴛᴏ ᴜᴘʟᴏᴀᴅ ᴀᴜᴅɪᴏ ᴏɴ ᴛᴇʟᴇɢʀᴀᴍ sᴇʀᴠᴇʀs.")
+        m.edit("- **جاري التحميـل ..**")
+        message.reply_audio(
+            audio_file,
+            caption=rep,
+            thumb=thumb_name,
+            parse_mode="md",
+            title=title,
+            duration=dur,
+        )
+        m.delete()
+    except Exception as e:
+        m.edit("خطأ ، تواصل مع مطور البوت -")
+        print(e)
 
     try:
         os.remove(audio_file)
         os.remove(thumb_name)
-    except Exception as ex:
-        LOGGER.error(ex)
+    except Exception as e:
+        print(e)
+
+
+@app.on_message(filters.regex('^(.*) !!'))
+def song232(_, message):
+  text = message.text
+  if '!!!' in text:
+      print("Error")
+  else:
+    g = text.split(" ")
+    query = str(g[0])
+    m = message.reply("🔎")
+    ydl_ops = {"format": "bestaudio[ext=m4a]"}
+    try:
+        results = YoutubeSearch(query, max_results=1).to_dict()
+        link = f"https://youtube.com{results[0]['url_suffix']}"
+        title = results[0]["title"][:40]
+        thumbnail = results[0]["thumbnails"][0]
+        thumb_name = f"{title}.jpg"
+        thumb = requests.get(thumbnail, allow_redirects=True)
+        open(thumb_name, "wb").write(thumb.content)
+        duration = results[0]["duration"]
+
+    except Exception as e:
+        m.edit("✗ لم اجد شيئا.\n\nاعطني اسم المغني كامل.")
+        print(str(e))
+        return
+    try:
+        with yt_dlp.YoutubeDL(ydl_ops) as ydl:
+            info_dict = ydl.extract_info(link, download=False)
+            audio_file = ydl.prepare_filename(info_dict)
+            ydl.process_info(info_dict)
+        rep = f"**- Ch** [𝖬𝗒 𝖲𝖳𝗎𝖿𝖿](t.me/uzzdd)"
+        secmul, dur, dur_arr = 1, 0, duration.split(":")
+        for i in range(len(dur_arr) - 1, -1, -1):
+            dur += int(float(dur_arr[i])) * secmul
+            secmul *= 60
+        m.edit("- **جاري التحميـل ..**")
+        message.reply_audio(
+            audio_file,
+            caption=rep,
+            thumb=thumb_name,
+            parse_mode="md",
+            title=title,
+            duration=dur,
+        )
+        m.delete()
+    except Exception as e:
+        m.edit("خطأ ، تواصل مع مطور البوت")
+        print(e)
+
+    try:
+        os.remove(audio_file)
+        os.remove(thumb_name)
+    except Exception as e:
+        print(e)
